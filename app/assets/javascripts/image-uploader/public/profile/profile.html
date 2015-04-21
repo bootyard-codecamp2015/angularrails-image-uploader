@@ -1,0 +1,22 @@
+<h1>Image-Uploader</h1>
+<div ng-controller="fileImageUploadCtrl as img">
+  <form ng-submit="imageProfile()">
+<div class="col-md-12">
+              <div class="form-group profile-photo">
+                <ul class="list-unstyled"  uploader="uploader">
+                  <li ng-show="image != null">
+                    <img ng-src="{{image}}" height="190" width="190">
+                  </li>
+                  <li ng-hide="image != null"><i class="fa fa-fw fa-camera"></i></li>
+                  <li>
+                    <input type="file" nv-file-select="" uploader="uploader" />
+                  </li>
+                </ul>
+              </div>    
+            </div>
+            <br>
+   
+    <button type="submit">Save</button><br>
+  </form>
+
+</div>

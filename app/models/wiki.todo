@@ -1,0 +1,208 @@
+Add to Gemfile
+
+gem 'carrierwave-mongoid', :require => 'carrierwave/mongoid'
+gem 'mongoid-grid_fs', github: 'ahoward/mongoid-grid_fs'
+gem "fog"
+gem 'mini_magick', '3.8.1'
+
+Run bundle install
+Require angular-file-upload
+app/assets/javascripts/application.js
+
+→ //= require angular-file-upload
+Add to config/application.rb
+
+→  config.autoload_paths += %W(#{config.root}/app/uploaders)
+Run rails g uploader image_file to generate the uploader file
+Edit app/uploaders/image_file_uploader.rb
+
+below: 
+class ImageFileUploader < CarrierWave::Uploader::Base
+
+  Add this line: 
+include CarrierWave::MiniMagick
+Remove this line: 
+storage :file
+
+and replace it with: 
+storage :fog
+
+Create or build your model in rails
+app/models/image.rb
+class Image
+  include Mongoid::Document
+  include Mongoid::Timestamps
+
+ # belongs_to :user
+end
+
+Mount the uploader to your model image.rb:
+
+→  mount_uploader :image_file, ImageFileUploader
+     # belongs_to :user
+Build resource in angularjs
+app/assets/javascripts/[app_name]/public/resources/image.js
+(function() {
+  'use strict';
+
+  angular.module('public.resource.image', ['ngResource'])
+  .factory("Image", [
+    '$resource', function($resource) {
+      return $resource("/api/public/images/:id.json", {
+        id: "@id"
+      },{
+        update: { method: 'PUT' }
+      });
+  }]);
+  
+})();
+
+Create config/initializers/fog.rb file
+
+CarrierWave.configure do |config|
+
+  config.fog_credentials = {
+    :provider               => '[your_provider]',
+    :aws_access_key_id      => '[your_amazon_access_key]',
+    :aws_secret_access_key  => '[your_amazon_secret_access_key]',
+    :region                 => '[region]'
+  }
+
+  config.fog_directory = '[fog_directory]'
+  config.fog_public = true
+end
+
+Add this to your html file:
+app/assets/javascripts/[app_name]/[role]/[name_of_view]/landing.html
+
+<div class="col-md-12">
+              <div class="form-group profile-photo">
+                <ul class="list-unstyled"  uploader="uploader" ng-controller="fileImageUploadCtrl as img">
+                  <li ng-show="image != null">
+                    <img ng-src="{{image}}" height="190" width="190">
+                  </li>
+                  <li ng-hide="image != null"><i class="fa fa-fw fa-camera"></i></li>
+                  <li>
+                    <input type="file" nv-file-select="" uploader="uploader" />
+                  </li>
+                </ul>
+              </div>    
+            </div>
+Add image-file-uploader.js
+app/assets/javascripts/[app_name]/[role]/[name_of_view]/image-file-uploader.js
+
+( function() {
+  'use strict';
+
+  angular.module('public.ctrl.imageFileUploader', ['angularFileUpload'])
+  .controller('fileImageUploadCtrl', ['$scope', 'FileUploader', 'Image',
+    function($scope, FileUploader, Image) {
+      $scope.image = null;
+      $scope.uploading = false;
+
+      Image.get().$promise.then(function(data) {
+        if (data.success == true) {
+          $scope.image = data.image_url;
+        }
+      });
+
+      var uploader = $scope.uploader = new FileUploader({ url: '/api/public/images/upload_file_image'});
+      uploader.onSuccessItem = function(fileItem, response, status, headers) {
+        $scope.uploading = false;
+        alert("Successfully uploaded image!");
+        $scope.image = response.image_url;
+      };
+
+      uploader.onProgressItem =  function(fileItem, progress) {
+        $scope.uploading = true;
+      };
+
+      $scope.$on('updatedProfile', function(event, updated) {
+        uploader.uploadAll();
+        Image.get().$promise.then(function(data) {
+          if (data.success == true) {
+            $scope.image = data.image_url;
+          }
+        });
+      });
+
+    }
+  ]);
+})();
+
+
+Add $rootScope to your html file controller
+app/assets/javascripts/[app_name]/[role]/[name_of_view]/landing_ctrl.js
+
+( function() {
+  'use strict';
+
+  angular.module('[role].ctrl.[controllerName]', [])
+  .controller('[ngControllerName]', [ '$scope', '$routeParams', 'Profile', '$rootScope',
+    function($scope, $routeParams, Profile, $rootScope) {
+
+      $scope.updateProfile = function() {
+        Profile.update({ id: $scope.profiles.id }, $scope.profiles).$promise.then(function(data) {
+            if(data.success == true) {
+              alert("Successfully updated profile!");
+              $rootScope.$broadcast('updatedProfile', true);
+            } else {
+              alert("Error in updating profile!");
+            }
+        });
+      }
+
+
+    }
+ 
+  ]);
+
+})();
+Add to routes.rb 
+
+resources :images, except: [:update, :edit] do
+        collection do
+          post 'upload_file_image'
+        end
+ end
+
+
+
+Create controllers/api/public/images_controller.rb 
+
+class API::Public::ImagesController < ApplicationController
+  before_filter :authenticate_user!
+  skip_before_filter :verify_authenticity_token, only: [:upload_file_image]
+
+  def upload_file_image
+    if current_user.image.nil?
+      @image = Image.create({ user_id: current_user.id, image_file: params[:file] }) 
+      Rails.logger.info params.inspect
+    else
+      current_user.image.delete
+      @image = Image.create({ user_id: current_user.id, image_file: params[:file] })
+    end
+  end
+
+
+end
+Add upload_file_image.json.jbuilder
+app/views/api/public/images/upload_file_image.json.jbuilder
+
+if @image.valid?
+  json.success true
+  json.image_url @image.image_file.main.url
+else
+  error = @image.errors.first
+  json.success false
+  json.error "#{error[0].to_s} #{error[1]}"
+end
+
+Add the following to your app.js
+app/assets/javascripts/[app_name]/app.js
+#resource
+'public.resource.image',
+
+#Controllers
+'public.ctrl.imageFileUploader',
+

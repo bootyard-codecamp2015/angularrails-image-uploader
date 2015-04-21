@@ -1,0 +1,8 @@
+asset 'angular'
+asset 'angular-route'
+asset 'angular-resource'
+asset 'angular-file-upload'
+asset 'ng-simplePagination'
+asset 'angular-bootstrap'
+
+# vim: ft=ruby
