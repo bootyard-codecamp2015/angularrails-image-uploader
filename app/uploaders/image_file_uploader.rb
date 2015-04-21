@@ -38,7 +38,27 @@ include CarrierWave::MiniMagick
   # version :thumb do
   #   process :resize_to_fit => [50, 50]
   # end
+  
+  # Create different versions of your uploaded files:
+  version :thumb do
+    process :resize_to_fill => [80, 80]
+  end
 
+  version :main do
+    # process :resize_to_fill => [600, 400]
+    process :resize_main_image
+  end
+
+  private
+
+    def resize_main_image
+      image = ::MiniMagick::Image::read(File.binread(@file.file))
+      if image[:width] > image[:height]
+        resize_to_fill 200, 200
+      else
+        resize_to_fit 200, 200   
+       end
+    end
   # Add a white list of extensions which are allowed to be uploaded.
   # For images you might use something like this:
   # def extension_white_list

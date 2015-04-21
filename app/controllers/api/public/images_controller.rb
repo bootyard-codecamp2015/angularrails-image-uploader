@@ -4,15 +4,6 @@ class API::Public::ImagesController < ApplicationController
   def upload_file_image
       @image = Image.create({image_file: params[:file] }) 
       Rails.logger.info params.inspect
-
-      if Image.nil?
-      @image = Image.create({image_file: params[:file] }) 
-      Rails.logger.info params.inspect
-    else
-      Image.delete
-      @image = Image.create({image_file: params[:file] })
-    end
-
   end
 
 
